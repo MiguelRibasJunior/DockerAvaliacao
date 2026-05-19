@@ -1,0 +1,75 @@
+# =========================
+# Serviços da aplicação
+# =========================
+services:
+
+  # ---------------------------------
+  # Serviço MySQL (db)
+  # ---------------------------------
+  db:
+    image: mysql:8.0
+    container_name: db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: cadastro
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppass
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
+    networks:
+      - rede_privada
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # ---------------------------------
+  # Serviço PHP + Apache (app)
+  # ---------------------------------
+  app:
+    build: ./app
+    container_name: app
+    volumes:
+      - app-code:/var/www/html
+      - ./app/src:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - rede_privada
+    expose:
+      - "80"
+
+  # ---------------------------------
+  # Serviço Nginx (web)
+  # ---------------------------------
+  web:
+    image: nginx:alpine
+    container_name: web
+    volumes:
+      - web-data:/usr/share/nginx/html
+      - ./web/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./app/src:/var/www/html
+    ports:
+      - "8080:8080"
+    depends_on:
+      - app
+    networks:
+      - rede_privada
+
+# =========================
+# Volumes persistentes
+# =========================
+volumes:
+  db-data:
+  app-code:
+  web-data:
+
+# =========================
+# Redes Docker
+# =========================
+networks:
+  rede_privada:
